@@ -332,7 +332,10 @@ void floating_enable(Con *con, bool automatic) {
 
     /* Sanity check: Are the coordinates on the appropriate output? If not, we
      * need to change them */
-    Output *current_output = get_output_from_rect(nc->rect);
+    Output *current_output = get_output_containing(nc->rect.x +
+                                                       (nc->rect.width / 2),
+                                                   nc->rect.y + (nc->rect.height / 2));
+
     Con *correct_output = con_get_output(ws);
     if (!current_output || current_output->con != correct_output) {
         DLOG("This floating window is on the wrong output, fixing coordinates (currently (%d, %d))\n",
@@ -340,13 +343,11 @@ void floating_enable(Con *con, bool automatic) {
 
         /* If moving from one output to another, keep the relative position
          * consistent (e.g. a centered dialog will remain centered). */
-        if (current_output) {
+        if (current_output)
             floating_fix_coordinates(nc, &current_output->con->rect, &correct_output->rect);
-            /* Make sure that the result is in the correct output. */
-            current_output = get_output_from_rect(nc->rect);
-        }
-        if (!current_output || current_output->con != correct_output) {
-            floating_center(nc, ws->rect);
+        else {
+            nc->rect.x = correct_output->rect.x;
+            nc->rect.y = correct_output->rect.y;
         }
     }
 
@@ -367,6 +368,21 @@ void floating_enable(Con *con, bool automatic) {
     if (set_focus)
         con_activate(con);
 
+    /* Check if we need to re-assign it to a different workspace because of its
+     * coordinates and exit if that was done successfully. */
+    if (floating_maybe_reassign_ws(nc)) {
+        goto done;
+    }
+
+    /* Sanitize coordinates: Check if they are on any output */
+    if (get_output_containing(nc->rect.x, nc->rect.y) != NULL) {
+        goto done;
+    }
+
+    ELOG("No output found at destination coordinates, centering floating window on current ws\n");
+    floating_center(nc, ws->rect);
+
+done:
     floating_set_hint_atom(nc, true);
     ipc_send_window_event("floating", con);
 }
