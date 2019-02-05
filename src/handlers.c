@@ -313,7 +313,7 @@ static void handle_configure_request(xcb_configure_request_event_t *event) {
     Con *workspace = con_get_workspace(con);
     if (workspace && (strcmp(workspace->name, "__i3_scratch") == 0)) {
         DLOG("This is a scratchpad container, ignoring ConfigureRequest\n");
-        goto out;
+        return;
     }
     Con *fullscreen = con_get_fullscreen_covering_ws(workspace);
 
